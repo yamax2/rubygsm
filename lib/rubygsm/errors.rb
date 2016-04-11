@@ -126,4 +126,10 @@ module Gsm
 			"No modem could be auto-detected."
 		end
 	end
+	
+	class CommandNotSupportedError < Error
+	  def to_s
+	    "Command is not supported"
+	  end
+	end
 end

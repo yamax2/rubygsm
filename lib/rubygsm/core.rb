@@ -22,13 +22,25 @@ class Modem
 	attr_accessor :verbosity, :read_timeout
 	attr_reader :device, :port
 	
+  DEFAULT_OPTIONS = {
+    :baudrate => 115200,
+    :log_level => :warn,
+    :cmd_delay => 0.1,
+    :read_timeout => 10,
+    :command_retries => 2,
+    :reset_on_failure => false,
+    :init_sequence => ["ATZ","ATE0","AT+CMEE"],
+  }
+
 	# call-seq:
-	#   Gsm::Modem.new(port, verbosity=:warn)
+	#   Gsm::Modem.new(port, options = {})
 	#
 	# Create a new instance, to initialize and communicate exclusively with a
 	# single modem device via the _port_ (which is usually either /dev/ttyS0
 	# or /dev/ttyUSB0), and start logging to *rubygsm.log* in the chdir.
-	def initialize(port=:auto, verbosity=:warn, baud=9600, cmd_delay=0.1)
+	def initialize(port = :auto, options = {})
+		
+		options = DEFAULT_OPTIONS.merge(options)
 		
 		# if no port was specified, we'll attempt to iterate
 		# all of the serial ports that i've ever seen gsm
@@ -43,7 +55,7 @@ class Modem
 			
 						begin
 							# serialport args: port, baud, data bits, stop bits, parity
-							device = SerialPort.new(try_port, baud, 8, 1, SerialPort::NONE)
+							device = SerialPort.new(try_port, options[:baudrate], 8, 1, SerialPort::NONE)
 							throw :found, [device, try_port]
 						
 						rescue ArgumentError, Errno::ENOENT
@@ -60,7 +72,7 @@ class Modem
 		# if the port was a port number or file
 		# name, initialize a serialport object
 		elsif port.is_a?(String) or port.is_a?(Fixnum)
-			@device = SerialPort.new(port, baud, 8, 1, SerialPort::NONE)
+			@device = SerialPort.new(port, options[:baudrate], 8, 1, SerialPort::NONE)
 			@port = port
 			
 		# otherwise, we'll assume that the object passed
@@ -70,22 +82,22 @@ class Modem
 			@port = nil
 		end
 		
-		@cmd_delay = cmd_delay
-		@verbosity = verbosity
+		@cmd_delay = options[:cmd_delay]
+		@verbosity = options[:log_level]
 		@locked_to = false
 
 		# how long should we wait for the modem to
 		# respond before raising a timeout error?
-		@read_timeout = 10
+		@read_timeout = options[:read_timeout]
 		
 		# how many times should we retry commands (after
 		# they fail, or time out) before giving up?
-		@retry_commands = 4
+		@retry_commands = options[:command_retries]
 
 		# when the maximum number of retries is exceeded,
 		# should the modem AT+CFUN (hard reset), or allow
 		# the exception to propagate?
-		@reset_on_failure = true
+		@reset_on_failure = options[:reset_on_failure]
 
 		# keep track of the depth which each
 		# thread is indented in the log
@@ -104,21 +116,13 @@ class Modem
 		# someone else, like a commander
 		@incoming = []
 		
-		# initialize the modem; rubygsm is (supposed to be) robust enough to function
-		# without these working (hence the "try_"), but they make different modems more
-		# consistant, and the logs a bit more sane.
-		try_command "ATE0"      # echo off
-		try_command "AT+CMEE=1" # useful errors
-		try_command "AT+WIND=0" # no notifications
+    (options[:init_sequence] || []).each { |c| command c}		
 		
 		# PDU mode isn't supported right now (although
 		# it should be, because it's quite simple), so
 		# switching to text mode (mode 1) is MANDATORY
 		command "AT+CMGF=1"
 	end
-	
-	
-	
 	
 	private
 	
@@ -315,6 +319,9 @@ class Modem
 			log_incr "Command: #{cmd} (##{tries+1} of #{@retry_commands+1})"
 			out = command!(cmd, *args)
 			
+	  rescue CommandNotSupportedError => err
+	    # Do not retry if the command is not supported
+			raise err
 		rescue Exception => err
 			log_then_decr "Rescued (in #command): #{err}"
 			
@@ -461,11 +468,16 @@ class Modem
 				raise Error.new(*m.captures)
 			end
 		
-			# some errors are not so useful :|
-			if buf == "ERROR"
-				log_then_decr "!! Raising Gsm::Error"
-				raise Error
-			end
+      # some errors are not so useful :|
+      if buf == "ERROR"
+        log_then_decr "!! Raising Gsm::Error"
+        raise Error
+      end
+    
+      if buf == "COMMAND NOT SUPPORT"
+        log_then_decr "!! Raising Gsm::CommandNotSupportedError"
+        raise CommandNotSupportedError
+      end
 		
 			# most commands return OK upon success, except
 			# for those which prompt for more data (CMGS)
@@ -691,7 +703,6 @@ class Modem
 		not command("AT+CPIN?").include?("+CPIN: READY")
 	end
 	
-	
 	# call-seq:
 	#   use_pin(pin) => true or false
 	#
@@ -724,21 +735,23 @@ class Modem
 	# signal strength of the GSM network, or nil if we don't know.
 	def signal_strength
 		data = query("AT+CSQ")
-		if m = data.match(/^\+CSQ: (\d+),/)
-			
-			# 99 represents "not known or not detectable",
-			# but we'll use nil for that, since it's a bit
-			# more ruby-ish to test for boolean equality
-			csq = m.captures[0].to_i
-			return (csq<99) ? csq : nil
-			
-		else
-			# Todo: Recover from this exception
-			err = "Not CSQ data: #{data.inspect}"
-			raise RuntimeError.new(err)
-		end
+		return nil unless data =~ /^\+CSQ: (\d+),/
+		# 99 represents "not known or not detectable",
+		csq = $1.to_i
+		csq < 99 ? csq : nil
 	end
-	
+
+  # 
+  # Return a simplified RSSI value (0..4)
+  # 
+  def rssi
+    sq = signal_strength
+    return 0 if sq < 2
+    return 1 if sq < 10
+    return 2 if sq < 15
+    return 3 if sq < 20
+    4
+  end
 	
 	# call-seq:
 	#   wait_for_network
@@ -771,11 +784,9 @@ class Modem
 	def send_sms(*args)
 		begin
 			send_sms!(*args)
-			return true
-		
-		# something went wrong
+			true
 		rescue Gsm::Error
-			return false
+			false
 		end
 	end
 	
