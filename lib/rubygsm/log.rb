@@ -17,7 +17,7 @@ class Modem
 		:none    => 0 }
 	
 	def log_init
-	  return unless @verbosity > 0
+	  return if @verbosity == :none
 	  
 		filename = if @port
 			
