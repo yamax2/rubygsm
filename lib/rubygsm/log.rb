@@ -13,22 +13,21 @@ class Modem
 		:traffic => 4,
 		:debug   => 3,
 		:warn    => 2,
-		:error   => 1 }
+		:error   => 1,
+		:none    => 0 }
 	
 	def log_init
-		if @port
+	  return unless @verbosity > 0
+	  
+		filename = if @port
 			
 			# build a log filename based on the device's
 			# path (ttyS0, ttyUSB1, etc) and date/time
 			fn_port = File.basename(@port)
 			fn_time = Time.now.strftime("%Y-%m-%d.%H-%M-%S")
-			filename = "rubygsm.#{fn_port}.#{fn_time}.log"
-		
-		# if the port path is unknown, log to
-		# the same file each time. TODO: we
-		# really need a proper logging solution
+			"rubygsm.#{fn_port}.#{fn_time}.log"
 		else
-			filename = "rubygsm.log"
+			 "rubygsm.log"
 		end
 		
 		# (re-) open the log file
@@ -48,8 +47,7 @@ class Modem
 		
 		# abort if logging isn't
 		# enabled yet (or ever?)
-		return false if\
-			@log.nil?
+		return false if	@log.nil?
 		
 		ind = "  " * (@log_indents[Thread.current] or 0)
 		
