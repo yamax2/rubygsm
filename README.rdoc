@@ -1,8 +1,13 @@
-RubyGSM is a Ruby library which uses serialport[http://github.com/toholio/ruby-serialport]
+RubyGSM is a Ruby library which uses serialport
 to provide a nifty interface to send and receive SMS messages via a GSM modem.
+
+This fork is useful if you want to send sms with Unicode Characters (UCS2)
+
+However - it is not tested for receiving SMS in UCS2 mode. If you test it - please let me know... ;)
 
 === Sample Usage
 
+  #not tested yet in UCS2 mode
   class ReverseApp
       def initialize(gsm)
           gsm.receive(method(:incoming))
@@ -23,9 +28,16 @@ If you just want to send sms
   msg = Gsm::Outgoing.new(gsm, "+447777777777", "Oh hai")
   msg.send!
 
+If you want to send sms with (not more than 70) unicode chars
+
+  gsm = Gsm::Modem.new("/dev/tty.usbserial", ucs2: true)
+  gsm.send_sms(gsm, "+447777777777", "These are german umlauts: ÖÄÜ öäü!")
+
 === Installing
 
-  $ sudo gem install borischernov-rubygsm
+  $ gem sources -a http://gems.github.com
+  $ sudo gem install serialport
+  $ sudo gem install mollat-rubygsm
 
 === Building gem
 
@@ -35,6 +47,7 @@ If you just want to send sms
 There is a known issue when you try to send message to shortcode. Enble :debug to see problem.
 
 === Devices Tested
+* XS Stick W21
 * Multitech MTCBA
 * Wavecom M1306B
 * Huawei E1752

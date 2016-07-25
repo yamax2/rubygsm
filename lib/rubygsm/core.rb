@@ -30,6 +30,7 @@ class Modem
     :command_retries => 2,
     :reset_on_failure => false,
     :init_sequence => ["ATZ","ATE0","AT+CMEE"],
+    :ucs2 => false
   }
 
   # call-seq:
@@ -99,6 +100,9 @@ class Modem
     # the exception to propagate?
     @reset_on_failure = options[:reset_on_failure]
 
+    # maybe we want so send in UCS2 mode
+    @ucs2 = options[:ucs2]
+
     # keep track of the depth which each
     # thread is indented in the log
     @log_indents = {}
@@ -122,10 +126,19 @@ class Modem
     # it should be, because it's quite simple), so
     # switching to text mode (mode 1) is MANDATORY
     command "AT+CMGF=1"
+
+    # Try to switch to UCS2 mode if requested
+    if @ucs2
+      command!('AT+CSCS="UCS2"', 'OK')
+      command!('AT+CSMP=17,200,0,8', 'OK')
+    else
+      # switch modem back if not wanted anymore
+      command!('AT+CSCS="GSM"', 'OK')
+      command!('AT+CSMP=17,200,0,7', 'OK')
+    end
   end
 
   private
-
 
   INCOMING_FMT = "%y/%m/%d,%H:%M:%S%Z" #:nodoc:
   CMGL_STATUS = "REC UNREAD" #:nodoc:
@@ -842,6 +855,11 @@ class Modem
       return false
     end
 
+    if @ucs2 and msg.length > 70
+      log "Message body is too long. Can only send 70 characters in UCS2 mode. This message has #{msg.length.to_s} characters."
+      return false
+    end
+
     # block the receiving thread while
     # we're sending. it can take some time
     exclusive do
@@ -853,11 +871,11 @@ class Modem
 
         # initiate the sms, and wait for either
         # the text prompt or an error message
-        command! "AT+CMGS=\"#{to}\"", ["\r\n", "> "]
+        command! "AT+CMGS=\"#{ucs2(to)}\"", ["\r\n", "> "]
 
         # send the sms, and wait until
         # it is accepted or rejected
-        write "#{msg}#{26.chr}"
+        write "#{ucs2(msg)}#{26.chr}"
         wait
 
 
@@ -1024,6 +1042,11 @@ class Modem
       # on to the next CMGL line
       n = nn
     end
+  end
+
+  def ucs2(string)
+    return string unless @ucs2
+    string.codepoints.map {|b| "%04X" % b }.join
   end
 end # Modem
 end # Gsm

@@ -1,11 +1,11 @@
 Gem::Specification.new do |s|
 	s.name     = "rubygsm"
-	s.version  = "0.42"
-	s.date     = "2013-10-05"
+	s.version  = "0.43"
+	s.date     = "2016-07-25"
 	s.summary  = "Send and receive SMS with a GSM modem"
-	s.email    = "adam.mckaig@gmail.com"
-	s.homepage = "http://github.com/adammck/rubygsm"
-	s.authors  = ["Adam Mckaig"]
+	s.email    = "please_write_an_issue_on_github@nowhere.com"
+	s.homepage = "http://github.com/mollat/rubygsm"
+	s.authors  = ["Adam Mckaig", "Andreas Mollat", "Others"]
 	s.has_rdoc = true
 
 	s.files = [
