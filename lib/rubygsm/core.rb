@@ -29,7 +29,7 @@ class Modem
     :read_timeout => 10,
     :command_retries => 2,
     :reset_on_failure => false,
-    :init_sequence => ["ATZ","ATE0","AT+CMEE"],
+    :init_sequence => ["AT&F", "ATZ","ATE0","AT+CMEE"],
     :ucs2 => false
   }
 
@@ -131,10 +131,6 @@ class Modem
     if @ucs2
       command!('AT+CSCS="UCS2"', 'OK')
       command!('AT+CSMP=17,200,0,8', 'OK')
-    else
-      # switch modem back if not wanted anymore
-      command!('AT+CSCS="GSM"', 'OK')
-      command!('AT+CSMP=17,200,0,7', 'OK')
     end
   end
 
