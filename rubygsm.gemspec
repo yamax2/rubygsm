@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
 	s.name     = "rubygsm"
-	s.version  = "0.43"
-	s.date     = "2016-07-25"
+	s.version  = "0.45"
+	s.date     = "2016-08-31"
 	s.summary  = "Send and receive SMS with a GSM modem"
 	s.email    = "please_write_an_issue_on_github@nowhere.com"
 	s.homepage = "http://github.com/mollat/rubygsm"
@@ -25,5 +25,6 @@ Gem::Specification.new do |s|
 		"sms"
 	]
 
-	s.add_dependency("serialport", [">= 1.1.0"])
+	s.add_dependency 'serialport', '>= 1.1.0'
+	s.add_dependency 'pdu_tools'
 end

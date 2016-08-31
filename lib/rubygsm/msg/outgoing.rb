@@ -17,7 +17,18 @@ module Gsm
 			@device = device
 			@text = text
 		end
-		
+
+		def send
+			result = @device.send_sms(self)
+
+			if result
+				@sent = Time.now
+				freeze
+			end
+
+			result
+		end
+
 		def send!
 			@device.send_sms(self)
 			@sent = Time.now

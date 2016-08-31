@@ -13,6 +13,7 @@ require "date.rb"
 # now, so we can depend upon it in our spec)
 require "rubygems"
 require "serialport"
+require "pdu_tools"
 
 module Gsm
 class Modem
@@ -125,7 +126,7 @@ class Modem
     # PDU mode isn't supported right now (although
     # it should be, because it's quite simple), so
     # switching to text mode (mode 1) is MANDATORY
-    command "AT+CMGF=1"
+    command "AT+CMGF=0"
 
     # Try to switch to UCS2 mode if requested
     if @ucs2
@@ -867,12 +868,19 @@ class Modem
 
         # initiate the sms, and wait for either
         # the text prompt or an error message
-        command! "AT+CMGS=\"#{ucs2(to)}\"", ["\r\n", "> "]
 
-        # send the sms, and wait until
-        # it is accepted or rejected
-        write "#{ucs2(msg)}#{26.chr}"
-        wait
+        encoder = PDUTools::Encoder.new recipient: to, message: msg
+        encoder.encode.each do |line|
+          val = line.pdu_hex
+
+          command! "AT+CMGS=#{(val.length - 2)/2}", ["\r\n", "> "]
+          write "#{val}#{26.chr}"
+
+          # send the sms, and wait until
+          # it is accepted or rejected
+          #write "#{ucs2(msg)}#{26.chr}"
+          wait
+        end
 
 
       # if something went wrong, we are
